@@ -1,141 +1,72 @@
-import tkinter as tk
-from tkinter import filedialog
-import xml.etree.ElementTree as ET
-import os
 import sys
 import logging
-from PIL import Image, ImageTk
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from PIL import Image
+import customtkinter as ctk
+from tkinter import filedialog
 
-# Setup logging
-# logging.basicConfig(filename="error.log", level=logging.ERROR)
-# logging.basicConfig(level=logging.ERROR)
 
-def resource_path(relative_path):
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except AttributeError:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+# ----------------- Logging -----------------
+# logging.basicConfig(
+#     filename="zwift_world_selector.log",
+#     level=logging.INFO,
+#     format="%(asctime)s [%(levelname)s] %(message)s",
+# )
+# ----------------- Utility -----------------
+def resource_path(filename: str) -> str:
+    """Get path to resource, works in dev and PyInstaller bundle."""
+    base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
+    return str(Path(base_path) / filename)
+# ----------------- Prefs Manager -----------------
+class ZwiftPrefsManager:
+    def __init__(self):
+        self.possible_paths = [
+            Path("~/Documents/Zwift/prefs.xml").expanduser(),  # Windows
+            Path("~/Library/Application Support/Zwift/prefs.xml").expanduser(),  # macOS
+            Path("~/.local/share/Zwift/prefs.xml").expanduser(),  # Linux
+        ]
+        self.prefs_path = self._find_prefs()
 
-def create_world_selector():
-    # Create main window
-    root = tk.Tk()
-    root.tk.call('tk', 'scaling', 1.5)  # Adjust scaling for consistent appearance
-    icon_path = resource_path('zwift_logo.png')
-    try:
-        icon = tk.PhotoImage(file=icon_path)
-        root.iconphoto(True, icon)
-    except Exception as e:
-        logging.error(f"Error loading icon: {e}")
+    def _find_prefs(self) -> Path:
+        for path in self.possible_paths:
+            if path.exists():
+                return path
+        return None
 
-    root.title("Zwift World Selector")
-    root.geometry("400x600")
-    root.configure(bg="#f4f4f4")
+    def set_prefs_file(self, filepath: str) -> None:
+        self.prefs_path = Path(filepath)
 
-    possible_paths = [
-        os.path.expanduser("~/Documents/Zwift/prefs.xml"),  # Windows default
-        os.path.expanduser("~/Library/Application Support/Zwift/prefs.xml"),  # Mac default
-        os.path.expanduser("~/.local/share/Zwift/prefs.xml")  # Linux default
-    ]
-
-    prefs_path = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            prefs_path = path
-            break
-
-    # Create header with Donate button
-    header_frame = tk.Frame(root, bg="#0072c6")
-    header_frame.pack(fill="x")
-
-    header_label = tk.Label(header_frame, text="Zwift World Selector", font=("Arial", 18, "bold"),
-                            fg="white", bg="#0072c6", pady=10)
-    header_label.pack(side="left", padx=10)
-
-    def open_donate_window():
-        # Create the donation window
-        donate_window = tk.Toplevel(root)
+    def get_current_world(self) -> int | None:
+        if not self.prefs_path:
+            return None
         try:
-            donate_icon = tk.PhotoImage(file=icon_path)
-            donate_window.iconphoto(True, donate_icon)
+            tree = ET.parse(self.prefs_path)
+            root = tree.getroot()
+            elem = root.find("WORLD")
+            return int(elem.text) if elem is not None else None
         except Exception as e:
-            logging.error(f"Error loading donate window icon: {e}")
+            logging.error(f"Error reading prefs.xml: {e}")
+            return None
 
-        donate_window.title("Donate")
-        donate_window.geometry("300x440")
-        donate_window.configure(bg="#f4f4f4")
-
-        # Add message
-        message_label = tk.Label(donate_window, text="Support this project by donating!", font=("Arial", 14, "bold"),
-                                 bg="#f4f4f4", wraplength=280, justify="center")
-        message_label.pack(pady=10)
-
-        # Load and resize the QR code
-        qr_path = resource_path('Donation.png')
+    def set_world(self, world_id: int) -> bool:
+        if not self.prefs_path:
+            return False
         try:
-            qr_image = Image.open(qr_path)
-            resized_qr = qr_image.resize((200, 250))  # Adjust size as needed (in pixels)
-            qr_photo = ImageTk.PhotoImage(resized_qr)
-            qr_label = tk.Label(donate_window, image=qr_photo, bg="#f4f4f4")
-            qr_label.image = qr_photo  # Keep a reference to avoid garbage collection
-            qr_label.pack(pady=20)
+            tree = ET.parse(self.prefs_path)
+            root = tree.getroot()
+            elem = root.find("WORLD") or ET.SubElement(root, "WORLD")
+            elem.text = str(world_id)
+            tree.write(self.prefs_path)
+            return True
         except Exception as e:
-            logging.error(f"Error loading or resizing QR code image: {e}")
-            qr_placeholder = tk.Label(donate_window, text="(QR Code not available)", font=("Arial", 12, "italic"),
-                                      bg="#d9d9d9", fg="#555555", width=25, height=12, relief="solid")
-            qr_placeholder.pack(pady=20)
+            logging.error(f"Error writing prefs.xml: {e}")
+            return False
 
-        # Close button for donation window
-        close_button = tk.Button(donate_window, text="Close", font=("Arial", 12, "bold"),
-                                 bg="#0072c6", fg="white", relief="flat", command=donate_window.destroy)
-        close_button.pack(pady=10)
 
-    donate_button = tk.Button(header_frame, text="Donate", font=("Arial", 10, "bold"),
-                               bg="#ff8c00", fg="white", relief="flat", command=open_donate_window)
-    donate_button.pack(side="right", padx=10, pady=10)
-
-    # Instructions / Status area
-    status_label = tk.Label(root, text="Please select a world",
-                            font=("Arial", 12), bg="#f4f4f4", wraplength=350, justify="center")
-    status_label.pack(pady=20)
-
-    def update_status(message, color="black"):
-        status_label.config(text=message, fg=color)
-
-    def select_prefs_file():
-        nonlocal prefs_path
-        file_path = filedialog.askopenfilename(title="Select Zwift prefs.xml file",
-                                               filetypes=[("XML files", "*.xml")])
-        if file_path:
-            prefs_path = file_path
-            update_status(f"Prefs file selected: {os.path.basename(file_path)}", "green")
-        else:
-            update_status("No file selected. Please try again.", "red")
-
-    def on_world_select(world_num):
-        if not prefs_path:
-            update_status("Error: prefs.xml file not found. Please select it manually.", "red")
-            return
-
-        try:
-            # Parse the XML file
-            tree = ET.parse(prefs_path)
-            prefs_root = tree.getroot()
-
-            # Find or create the WORLD element and update its value
-            world_elem = prefs_root.find("WORLD")
-            if world_elem is None:
-                world_elem = ET.SubElement(prefs_root, "WORLD")
-            world_elem.text = str(world_num)
-
-            tree.write(prefs_path)
-            update_status(f"World successfully changed to {worlds_reversed[world_num]}!", "green")
-        except Exception as e:
-            logging.error(f"Error updating prefs.xml: {e}")
-            update_status(f"Error updating prefs.xml: {str(e)}", "red")
-
-    worlds = {
+# ----------------- GUI -----------------
+class WorldSelectorUI(ctk.CTk):
+    WORLDS = {
         "Watopia": 1,
         "Richmond": 2,
         "London": 3,
@@ -145,44 +76,135 @@ def create_world_selector():
         "Makuri Islands": 9,
         "France": 10,
         "Paris": 11,
-        "Scotland": 13
+        "Scotland": 13,
     }
 
-    worlds_reversed = {v: k for k, v in worlds.items()}
+    def __init__(self, pref_manager: ZwiftPrefsManager):
+        super().__init__()
+        self.prefs_manager = pref_manager
 
-    button_frame = tk.Frame(root, bg="#f4f4f4")
-    button_frame.pack(pady=10)
+        # Window setup
+        self.title("Zwift World Selector")
+        self.geometry("420x600")
+        ctk.set_appearance_mode("light")  # "light", "dark", or "system"
+        ctk.set_default_color_theme("blue")
 
-    row, col = 0, 0
-    for world_name, world_num in worlds.items():
-        btn = tk.Button(button_frame, text=world_name, font=("Arial", 12, "bold"),
-                        bg="#ff8c00", fg="white", activebackground="#ff8c00",
-                        activeforeground="#0072c6", width=16, height=2, relief="flat",
-                        command=lambda wn=world_num: on_world_select(wn))
-        btn.grid(row=row, column=col, padx=5, pady=5)
-        col += 1
-        if col > 1:  # Two buttons per row
-            col = 0
-            row += 1
+        # Icon
+        try:
+            self.iconbitmap(resource_path("zwift_logo.ico"))  # Better than PNG for Windows
+        except Exception as e:
+            logging.warning(f"Could not set window icon: {e}")
 
-    select_file_btn = tk.Button(root, text="Select prefs.xml file", font=("Arial", 12, "bold"),
-                                bg="#0072c6", fg="white", relief="flat", command=select_prefs_file)
-    select_file_btn.pack(pady=10)
+        # Header
+        header = ctk.CTkFrame(self, fg_color="#0072c6")
+        header.pack(fill="x")
 
-    exit_button = tk.Button(root, text="Exit", font=("Arial", 12, "bold"),
-                            bg="#dc3545", fg="white", relief="flat", command=root.destroy)
-    exit_button.pack(pady=10)
+        label = ctk.CTkLabel(
+            header,
+            text="Zwift World Selector",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="white",
+        )
+        label.pack(side="left", padx=10, pady=15)
 
-    # Center the window
-    root.update_idletasks()
-    width = root.winfo_width()
-    height = root.winfo_height()
-    x = (root.winfo_screenwidth() // 2) - (width // 2)
-    y = (root.winfo_screenheight() // 2) - (height // 2)
-    root.geometry(f"{width}x{height}+{x}+{y}")
+        donate_btn = ctk.CTkButton(
+            header,
+            text="Donate",
+            fg_color="#ff8c00",
+            command=self.open_donate_window,
+        )
+        donate_btn.pack(side="right", padx=10, pady=10)
 
-    root.mainloop()
+        # Status label
+        self.status_label = ctk.CTkLabel(self, text="Please select a world", wraplength=350)
+        self.status_label.pack(pady=15)
+
+        # World buttons
+        grid_frame = ctk.CTkFrame(self)
+        grid_frame.pack(pady=10)
+
+        row, col = 0, 0
+        for world_name, world_id in self.WORLDS.items():
+            btn = ctk.CTkButton(
+                grid_frame,
+                text=world_name,
+                width=160,
+                height=40,
+                command=lambda wid=world_id: self.on_world_select(wid),
+            )
+            btn.grid(row=row, column=col, padx=5, pady=5)
+            col += 1
+            if col > 1:
+                col = 0
+                row += 1
+
+        # Select file button
+        select_btn = ctk.CTkButton(
+            self, text="Select prefs.xml file", command=self.select_prefs_file
+        )
+        select_btn.pack(pady=10)
+
+        # Exit button
+        exit_btn = ctk.CTkButton(self, text="Exit", fg_color="#dc3545", command=self.destroy)
+        exit_btn.pack(pady=10)
+
+        # Highlight current world (if any)
+        self.highlight_current_world()
+
+    def update_status(self, message: str, color: str = "black"):
+        self.status_label.configure(text=message, text_color=color)
+
+    def select_prefs_file(self):
+        file_path = filedialog.askopenfilename(
+            title="Select Zwift prefs.xml file",
+            filetypes=[("XML files", "*.xml")],
+        )
+        if file_path:
+            self.prefs_manager.set_prefs_file(file_path)
+            self.update_status("Prefs file selected!", "green")
+
+    def on_world_select(self, world_id: int):
+        if self.prefs_manager.set_world(world_id):
+            self.update_status(f"World changed to {self.get_world_name(world_id)}!", "green")
+        else:
+            self.update_status("Failed to update prefs.xml", "red")
+
+    def highlight_current_world(self):
+        current = self.prefs_manager.get_current_world()
+        if current:
+            name = self.get_world_name(current)
+            self.update_status(f"Current world: {name}", "blue")
+
+    def get_world_name(self, wid: int) -> str:
+        return next((name for name, num in self.WORLDS.items() if num == wid), str(wid))
+
+    def open_donate_window(self):
+        win = ctk.CTkToplevel(self)
+        win.title("Donate")
+        win.geometry("300x400")
+
+        msg = ctk.CTkLabel(
+            win, text="Support this project by donating!", font=ctk.CTkFont(size=14, weight="bold")
+        )
+        msg.pack(pady=10)
+
+        try:
+            img = Image.open(resource_path("Donation.png"))
+            img = img.resize((200, 250))
+            photo = ctk.CTkImage(img, size=(200, 250))
+            qr = ctk.CTkLabel(win, image=photo, text="")
+            qr.pack(pady=20)
+        except Exception as e:
+            logging.error(f"Error loading QR code: {e}")
+            placeholder = ctk.CTkLabel(win, text="(QR Code not available)")
+            placeholder.pack(pady=20)
+
+        close_btn = ctk.CTkButton(win, text="Close", command=win.destroy)
+        close_btn.pack(pady=10)
 
 
+# ----------------- Run -----------------
 if __name__ == "__main__":
-    create_world_selector()
+    prefs_manager = ZwiftPrefsManager()
+    app = WorldSelectorUI(prefs_manager)
+    app.mainloop()
