@@ -1,6 +1,6 @@
 import sys
 import logging
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as Et
 from pathlib import Path
 from PIL import Image
 import customtkinter as ctk
@@ -8,16 +8,18 @@ from tkinter import filedialog
 
 
 # ----------------- Logging -----------------
-# logging.basicConfig(
-#     filename="zwift_world_selector.log",
-#     level=logging.INFO,
-#     format="%(asctime)s [%(levelname)s] %(message)s",
-# )
+logging.basicConfig(
+    filename="zwift_world_selector.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 # ----------------- Utility -----------------
-def resource_path(filename: str) -> str:
-    """Get path to resource, works in dev and PyInstaller bundle."""
-    base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
-    return str(Path(base_path) / filename)
+# def resource_path(filename: str) -> str:
+#     """Get path to resource, works in dev and PyInstaller bundle."""
+#     base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
+#     return str(Path(base_path) / filename)
+
+ico_path = Path("zwift_logo.ico")
 # ----------------- Prefs Manager -----------------
 class ZwiftPrefsManager:
     def __init__(self):
@@ -41,7 +43,7 @@ class ZwiftPrefsManager:
         if not self.prefs_path:
             return None
         try:
-            tree = ET.parse(self.prefs_path)
+            tree = Et.parse(self.prefs_path)
             root = tree.getroot()
             elem = root.find("WORLD")
             return int(elem.text) if elem is not None else None
@@ -53,9 +55,9 @@ class ZwiftPrefsManager:
         if not self.prefs_path:
             return False
         try:
-            tree = ET.parse(self.prefs_path)
+            tree = Et.parse(self.prefs_path)
             root = tree.getroot()
-            elem = root.find("WORLD") or ET.SubElement(root, "WORLD")
+            elem = root.find("WORLD") or Et.SubElement(root, "WORLD")
             elem.text = str(world_id)
             tree.write(self.prefs_path)
             return True
@@ -83,15 +85,14 @@ class WorldSelectorUI(ctk.CTk):
         super().__init__()
         self.prefs_manager = pref_manager
 
-        # Window setup
         self.title("Zwift World Selector")
         self.geometry("420x600")
-        ctk.set_appearance_mode("light")  # "light", "dark", or "system"
+        ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
 
         # Icon
         try:
-            self.iconbitmap(resource_path("zwift_logo.ico"))  # Better than PNG for Windows
+            self.iconbitmap(ico_path)  # Better than PNG for Windows
         except Exception as e:
             logging.warning(f"Could not set window icon: {e}")
 
@@ -107,13 +108,13 @@ class WorldSelectorUI(ctk.CTk):
         )
         label.pack(side="left", padx=10, pady=15)
 
-        donate_btn = ctk.CTkButton(
-            header,
-            text="Donate",
-            fg_color="#ff8c00",
-            command=self.open_donate_window,
-        )
-        donate_btn.pack(side="right", padx=10, pady=10)
+        # donate_btn = ctk.CTkButton(
+        #     header,
+        #     text="Donate",
+        #     fg_color="#ff8c00",
+        #     command=self.open_donate_window,
+        # )
+        # donate_btn.pack(side="right", padx=10, pady=10)
 
         # Status label
         self.status_label = ctk.CTkLabel(self, text="Please select a world", wraplength=350)
@@ -178,29 +179,29 @@ class WorldSelectorUI(ctk.CTk):
     def get_world_name(self, wid: int) -> str:
         return next((name for name, num in self.WORLDS.items() if num == wid), str(wid))
 
-    def open_donate_window(self):
-        win = ctk.CTkToplevel(self)
-        win.title("Donate")
-        win.geometry("300x400")
-
-        msg = ctk.CTkLabel(
-            win, text="Support this project by donating!", font=ctk.CTkFont(size=14, weight="bold")
-        )
-        msg.pack(pady=10)
-
-        try:
-            img = Image.open(resource_path("Donation.png"))
-            img = img.resize((200, 250))
-            photo = ctk.CTkImage(img, size=(200, 250))
-            qr = ctk.CTkLabel(win, image=photo, text="")
-            qr.pack(pady=20)
-        except Exception as e:
-            logging.error(f"Error loading QR code: {e}")
-            placeholder = ctk.CTkLabel(win, text="(QR Code not available)")
-            placeholder.pack(pady=20)
-
-        close_btn = ctk.CTkButton(win, text="Close", command=win.destroy)
-        close_btn.pack(pady=10)
+    # def open_donate_window(self):
+    #     win = ctk.CTkToplevel(self)
+    #     win.title("Donate")
+    #     win.geometry("300x400")
+    #
+    #     msg = ctk.CTkLabel(
+    #         win, text="Support this project by donating!", font=ctk.CTkFont(size=14, weight="bold")
+    #     )
+    #     msg.pack(pady=10)
+    #
+    #     try:
+    #         img = Image.open(resource_path("Donation.png"))
+    #         img = img.resize((200, 250))
+    #         photo = ctk.CTkImage(img, size=(200, 250))
+    #         qr = ctk.CTkLabel(win, image=photo, text="")
+    #         qr.pack(pady=20)
+    #     except Exception as e:
+    #         logging.error(f"Error loading QR code: {e}")
+    #         placeholder = ctk.CTkLabel(win, text="(QR Code not available)")
+    #         placeholder.pack(pady=20)
+    #
+    #     close_btn = ctk.CTkButton(win, text="Close", command=win.destroy)
+    #     close_btn.pack(pady=10)
 
 
 # ----------------- Run -----------------
