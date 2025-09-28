@@ -1,8 +1,8 @@
-import sys
+# import sys
 import logging
 import xml.etree.ElementTree as Et
 from pathlib import Path
-from PIL import Image
+# from PIL import Image
 import customtkinter as ctk
 from tkinter import filedialog
 
@@ -57,7 +57,7 @@ class ZwiftPrefsManager:
         try:
             tree = Et.parse(self.prefs_path)
             root = tree.getroot()
-            elem = root.find("WORLD") or Et.SubElement(root, "WORLD")
+            elem = root.find("WORLD") # or Et.SubElement(root, "WORLD")
             elem.text = str(world_id)
             tree.write(self.prefs_path)
             return True
@@ -164,9 +164,11 @@ class WorldSelectorUI(ctk.CTk):
             self.prefs_manager.set_prefs_file(file_path)
             self.update_status("Prefs file selected!", "green")
 
-    def on_world_select(self, world_id: int):
+    def on_world_select(self, world_id: int) -> None:
         if self.prefs_manager.set_world(world_id):
-            self.update_status(f"World changed to {self.get_world_name(world_id)}!", "green")
+            # self.update_status(f"World changed to {self.get_world_name(world_id)}!", "green")
+            self.highlight_current_world()
+            self.status_label.configure(text_color="green")
         else:
             self.update_status("Failed to update prefs.xml", "red")
 
