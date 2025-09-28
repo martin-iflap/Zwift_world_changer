@@ -7,6 +7,14 @@ import customtkinter as ctk
 from tkinter import filedialog
 
 
+#--------------   Settings   ------------------
+STS_LBL_FONT = ("Arial", 22, "bold")
+STS_LBL_TXT_CLR = "#005B96" #005B96
+BTN_FONT = ("Arial", 20, "bold")
+BTN_FG = "#FF6600"
+BTN_HOVER = "#FFA500"
+HEADER_CLR = "white"
+HEADER_FONT = ("Arial", 20, "bold")
 # ----------------- Logging -----------------
 logging.basicConfig(
     filename="zwift_world_selector.log",
@@ -18,7 +26,6 @@ logging.basicConfig(
 #     """Get path to resource, works in dev and PyInstaller bundle."""
 #     base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
 #     return str(Path(base_path) / filename)
-
 ico_path = Path("zwift_logo.ico")
 # ----------------- Prefs Manager -----------------
 class ZwiftPrefsManager:
@@ -57,15 +64,13 @@ class ZwiftPrefsManager:
         try:
             tree = Et.parse(self.prefs_path)
             root = tree.getroot()
-            elem = root.find("WORLD") # or Et.SubElement(root, "WORLD")
+            elem = root.find("WORLD")
             elem.text = str(world_id)
             tree.write(self.prefs_path)
             return True
         except Exception as e:
             logging.error(f"Error writing prefs.xml: {e}")
             return False
-
-
 # ----------------- GUI -----------------
 class WorldSelectorUI(ctk.CTk):
     WORLDS = {
@@ -87,6 +92,7 @@ class WorldSelectorUI(ctk.CTk):
 
         self.title("Zwift World Selector")
         self.geometry("420x600")
+        self.resizable(0, 0)
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
 
@@ -97,14 +103,14 @@ class WorldSelectorUI(ctk.CTk):
             logging.warning(f"Could not set window icon: {e}")
 
         # Header
-        header = ctk.CTkFrame(self, fg_color="#0072c6")
+        header = ctk.CTkFrame(self, fg_color="#0072c6", corner_radius=0)
         header.pack(fill="x")
 
         label = ctk.CTkLabel(
             header,
             text="Zwift World Selector",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color="white",
+            font=HEADER_FONT,
+            text_color=HEADER_CLR,
         )
         label.pack(side="left", padx=10, pady=15)
 
@@ -117,7 +123,11 @@ class WorldSelectorUI(ctk.CTk):
         # donate_btn.pack(side="right", padx=10, pady=10)
 
         # Status label
-        self.status_label = ctk.CTkLabel(self, text="Please select a world", wraplength=350)
+        self.status_label = ctk.CTkLabel(self,
+                                         text="",
+                                         wraplength=350,
+                                         font=STS_LBL_FONT,
+                                         text_color=STS_LBL_TXT_CLR)
         self.status_label.pack(pady=15)
 
         # World buttons
@@ -129,6 +139,9 @@ class WorldSelectorUI(ctk.CTk):
             btn = ctk.CTkButton(
                 grid_frame,
                 text=world_name,
+                font=BTN_FONT,
+                fg_color=BTN_FG,
+                hover_color=BTN_HOVER,
                 width=160,
                 height=40,
                 command=lambda wid=world_id: self.on_world_select(wid),
@@ -140,13 +153,19 @@ class WorldSelectorUI(ctk.CTk):
                 row += 1
 
         # Select file button
-        select_btn = ctk.CTkButton(
-            self, text="Select prefs.xml file", command=self.select_prefs_file
-        )
+        select_btn = ctk.CTkButton(self,
+                                   text="Select prefs.xml file",
+                                   font=BTN_FONT,
+                                   fg_color="#0072c6",
+                                   command=self.select_prefs_file)
         select_btn.pack(pady=10)
 
         # Exit button
-        exit_btn = ctk.CTkButton(self, text="Exit", fg_color="#dc3545", command=self.destroy)
+        exit_btn = ctk.CTkButton(self,
+                                 text="Exit",
+                                 fg_color="#dc3545",
+                                 command=self.destroy,
+                                 font=BTN_FONT)
         exit_btn.pack(pady=10)
 
         # Highlight current world (if any)
@@ -163,10 +182,10 @@ class WorldSelectorUI(ctk.CTk):
         if file_path:
             self.prefs_manager.set_prefs_file(file_path)
             self.update_status("Prefs file selected!", "green")
+            self.after(2500, self.highlight_current_world)
 
     def on_world_select(self, world_id: int) -> None:
         if self.prefs_manager.set_world(world_id):
-            # self.update_status(f"World changed to {self.get_world_name(world_id)}!", "green")
             self.highlight_current_world()
             self.status_label.configure(text_color="green")
         else:
@@ -176,7 +195,7 @@ class WorldSelectorUI(ctk.CTk):
         current = self.prefs_manager.get_current_world()
         if current:
             name = self.get_world_name(current)
-            self.update_status(f"Current world: {name}", "blue")
+            self.update_status(f"Current world: {name}", STS_LBL_TXT_CLR)
 
     def get_world_name(self, wid: int) -> str:
         return next((name for name, num in self.WORLDS.items() if num == wid), str(wid))
@@ -204,8 +223,6 @@ class WorldSelectorUI(ctk.CTk):
     #
     #     close_btn = ctk.CTkButton(win, text="Close", command=win.destroy)
     #     close_btn.pack(pady=10)
-
-
 # ----------------- Run -----------------
 if __name__ == "__main__":
     prefs_manager = ZwiftPrefsManager()
