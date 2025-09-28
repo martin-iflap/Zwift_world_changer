@@ -9,7 +9,7 @@ from tkinter import filedialog
 
 #--------------   Settings   ------------------
 STS_LBL_FONT = ("Arial", 22, "bold")
-STS_LBL_TXT_CLR = "#005B96" #005B96
+STS_LBL_TXT_CLR = "#005B96"
 BTN_FONT = ("Arial", 20, "bold")
 BTN_FG = "#FF6600"
 BTN_HOVER = "#FFA500"
@@ -132,7 +132,7 @@ class WorldSelectorUI(ctk.CTk):
 
         # World buttons
         grid_frame = ctk.CTkFrame(self)
-        grid_frame.pack(pady=10)
+        grid_frame.pack(pady=15)
 
         row, col = 0, 0
         for world_name, world_id in self.WORLDS.items():
@@ -158,7 +158,7 @@ class WorldSelectorUI(ctk.CTk):
                                    font=BTN_FONT,
                                    fg_color="#0072c6",
                                    command=self.select_prefs_file)
-        select_btn.pack(pady=10)
+        select_btn.pack(pady=15)
 
         # Exit button
         exit_btn = ctk.CTkButton(self,
@@ -166,12 +166,12 @@ class WorldSelectorUI(ctk.CTk):
                                  fg_color="#dc3545",
                                  command=self.destroy,
                                  font=BTN_FONT)
-        exit_btn.pack(pady=10)
+        exit_btn.pack(pady=20)
 
         # Highlight current world (if any)
         self.highlight_current_world()
 
-    def update_status(self, message: str, color: str = "black"):
+    def update_status(self, message: str, color: str = "#005B96"):
         self.status_label.configure(text=message, text_color=color)
 
     def select_prefs_file(self):
@@ -186,8 +186,8 @@ class WorldSelectorUI(ctk.CTk):
 
     def on_world_select(self, world_id: int) -> None:
         if self.prefs_manager.set_world(world_id):
-            self.highlight_current_world()
-            self.status_label.configure(text_color="green")
+            self.update_status(f"World changed to: {self.get_world_name(world_id)}", "green")
+            self.after(2500, self.highlight_current_world)
         else:
             self.update_status("Failed to update prefs.xml", "red")
 
