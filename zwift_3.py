@@ -5,6 +5,7 @@ from pathlib import Path
 # from PIL import Image
 import customtkinter as ctk
 from tkinter import filedialog
+from lxml import etree
 
 
 #--------------   Settings   ------------------
@@ -15,13 +16,15 @@ BTN_FG = "#FF6600"
 BTN_HOVER = "#FFA500"
 HEADER_CLR = "white"
 HEADER_FONT = ("Arial", 20, "bold")
+
+MEMORY = Path("memory.txt")
 # ----------------- Logging -----------------
 logging.basicConfig(
     filename="zwift_world_selector.log",
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
-# ----------------- Utility -----------------
+# ----------------- ICO Path -----------------
 # def resource_path(filename: str) -> str:
 #     """Get path to resource, works in dev and PyInstaller bundle."""
 #     base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
@@ -37,16 +40,31 @@ class ZwiftPrefsManager:
         ]
         self.prefs_path = self._find_prefs()
 
-    def _find_prefs(self) -> Path:
+    def _find_prefs(self) -> Path | None:
+        """Function will look for prefs.xml path in possible paths
+        and if None exists it will try to load absolute path from memory"""
         for path in self.possible_paths:
             if path.exists():
                 return path
-        return None
+        try:
+            with open(MEMORY, "r", encoding="utf-8") as f:
+                content = Path(f.read().strip())
+                return content if content.exists() else None
+        except Exception as e:
+            logging.error(f"Error reading memory file: {e}")
 
     def set_prefs_file(self, filepath: str) -> None:
+        filepath = str(Path(filepath).resolve())
         self.prefs_path = Path(filepath)
+        try:
+            with open(MEMORY, "w", encoding="utf-8") as f:
+                f.write(filepath)
+        except Exception as e:
+            logging.error(f"Error writing into memory: {e}")
+            return None
 
     def get_current_world(self) -> int | None:
+        """reads the prefs.xml and returns the integer of the world that is currently selected"""
         if not self.prefs_path:
             return None
         try:
@@ -56,17 +74,28 @@ class ZwiftPrefsManager:
             return int(elem.text) if elem is not None else None
         except Exception as e:
             logging.error(f"Error reading prefs.xml: {e}")
+
             return None
 
     def set_world(self, world_id: int) -> bool:
+        """Changes the text of the WORLD element to the currently selected world number.
+            Firstly a .tmp file is created and updated.
+            The .tmp file than replaces the original prefs.xml to prevent file corruption
+            """
         if not self.prefs_path:
             return False
         try:
-            tree = Et.parse(self.prefs_path)
+            parser = etree.XMLParser(remove_blank_text=False)
+            tree = etree.parse(str(self.prefs_path), parser)
             root = tree.getroot()
             elem = root.find("WORLD")
+            if elem is None:
+                logging.warning("prefs.xml has no WORLD element")
+                return False
             elem.text = str(world_id)
-            tree.write(self.prefs_path)
+            temp_path = self.prefs_path.with_suffix(".tmp")
+            tree.write(temp_path, encoding="utf-8", xml_declaration=True, pretty_print=True)
+            temp_path.replace(self.prefs_path)
             return True
         except Exception as e:
             logging.error(f"Error writing prefs.xml: {e}")
@@ -102,7 +131,6 @@ class WorldSelectorUI(ctk.CTk):
         except Exception as e:
             logging.warning(f"Could not set window icon: {e}")
 
-        # Header
         header = ctk.CTkFrame(self, fg_color="#0072c6", corner_radius=0)
         header.pack(fill="x")
 
@@ -129,6 +157,8 @@ class WorldSelectorUI(ctk.CTk):
                                          font=STS_LBL_FONT,
                                          text_color=STS_LBL_TXT_CLR)
         self.status_label.pack(pady=15)
+        if prefs_manager.prefs_path is None:
+            self.status_label.configure(text="Please select prefs.xml file manually", text_color="red")
 
         # World buttons
         grid_frame = ctk.CTkFrame(self)
@@ -152,7 +182,6 @@ class WorldSelectorUI(ctk.CTk):
                 col = 0
                 row += 1
 
-        # Select file button
         select_btn = ctk.CTkButton(self,
                                    text="Select prefs.xml file",
                                    font=BTN_FONT,
@@ -160,7 +189,6 @@ class WorldSelectorUI(ctk.CTk):
                                    command=self.select_prefs_file)
         select_btn.pack(pady=15)
 
-        # Exit button
         exit_btn = ctk.CTkButton(self,
                                  text="Exit",
                                  fg_color="#dc3545",
@@ -185,17 +213,20 @@ class WorldSelectorUI(ctk.CTk):
             self.after(2500, self.highlight_current_world)
 
     def on_world_select(self, world_id: int) -> None:
+        """calls the set_world function that changes the current world and updates status label"""
         if self.prefs_manager.set_world(world_id):
             self.update_status(f"World changed to: {self.get_world_name(world_id)}", "green")
             self.after(2500, self.highlight_current_world)
         else:
-            self.update_status("Failed to update prefs.xml", "red")
+            self.update_status("Failed to update prefs.xml (prefs.xml might be invalid)", "red")
 
     def highlight_current_world(self):
         current = self.prefs_manager.get_current_world()
         if current:
             name = self.get_world_name(current)
             self.update_status(f"Current world: {name}", STS_LBL_TXT_CLR)
+        else:
+            self.update_status("No world selected", "red")
 
     def get_world_name(self, wid: int) -> str:
         return next((name for name, num in self.WORLDS.items() if num == wid), str(wid))
