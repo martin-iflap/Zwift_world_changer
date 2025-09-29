@@ -5,6 +5,7 @@ from pathlib import Path
 # from PIL import Image
 import customtkinter as ctk
 from tkinter import filedialog
+# import csv
 
 
 #--------------   Settings   ------------------
@@ -15,13 +16,15 @@ BTN_FG = "#FF6600"
 BTN_HOVER = "#FFA500"
 HEADER_CLR = "white"
 HEADER_FONT = ("Arial", 20, "bold")
+
+MEMORY = Path("memory.txt")
 # ----------------- Logging -----------------
 logging.basicConfig(
     filename="zwift_world_selector.log",
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
-# ----------------- Utility -----------------
+# ----------------- ICO Path -----------------
 # def resource_path(filename: str) -> str:
 #     """Get path to resource, works in dev and PyInstaller bundle."""
 #     base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
@@ -37,14 +40,26 @@ class ZwiftPrefsManager:
         ]
         self.prefs_path = self._find_prefs()
 
-    def _find_prefs(self) -> Path:
+    def _find_prefs(self) -> Path | None:
         for path in self.possible_paths:
             if path.exists():
                 return path
+        try:
+            with open(MEMORY, "r", encoding="utf-8") as f:
+                content = Path(f.read().strip())
+                return content if content.exists() else None
+        except Exception as e:
+            logging.error(f"Error reading memory file: {e}")
         return None
 
     def set_prefs_file(self, filepath: str) -> None:
+        filepath = str(Path(filepath).resolve())
         self.prefs_path = Path(filepath)
+        try:
+            with open(MEMORY, "w", encoding="utf-8") as f:
+                f.write(filepath)
+        except Exception as e:
+            logging.error(f"Error writing into memory: {e}")
 
     def get_current_world(self) -> int | None:
         if not self.prefs_path:
