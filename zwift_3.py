@@ -5,16 +5,17 @@ from pathlib import Path
 # from PIL import Image
 import customtkinter as ctk
 from tkinter import filedialog
+from lxml import etree
 
 
 #--------------   Settings   ------------------
-STS_LBL_FONT = ctk.CTkFont("Arial", 22, "bold")
+STS_LBL_FONT = ("Arial", 22, "bold")
 STS_LBL_TXT_CLR = "#005B96"
-BTN_FONT = ctk.CTkFont("Arial", 20, "bold")
+BTN_FONT = ("Arial", 20, "bold")
 BTN_FG = "#FF6600"
 BTN_HOVER = "#FFA500"
 HEADER_CLR = "white"
-HEADER_FONT = ctk.CTkFont("Arial", 20, "bold")
+HEADER_FONT = ("Arial", 20, "bold")
 
 MEMORY = Path("memory.txt")
 # ----------------- Logging -----------------
@@ -84,7 +85,8 @@ class ZwiftPrefsManager:
         if not self.prefs_path:
             return False
         try:
-            tree = Et.parse(self.prefs_path)
+            parser = etree.XMLParser(remove_blank_text=False)
+            tree = etree.parse(str(self.prefs_path), parser)
             root = tree.getroot()
             elem = root.find("WORLD")
             if elem is None:
@@ -92,7 +94,7 @@ class ZwiftPrefsManager:
                 return False
             elem.text = str(world_id)
             temp_path = self.prefs_path.with_suffix(".tmp")
-            tree.write(temp_path, encoding="utf-8", xml_declaration=True)
+            tree.write(temp_path, encoding="utf-8", xml_declaration=True, pretty_print=True)
             temp_path.replace(self.prefs_path)
             return True
         except Exception as e:
