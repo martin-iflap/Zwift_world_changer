@@ -21,7 +21,7 @@ MEMORY = Path("memory.txt")
 # ----------------- Logging -----------------
 logging.basicConfig(
     filename="zwift_world_selector.log",
-    level=logging.INFO,
+    level=logging.ERROR,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 # ----------------- ICO Path -----------------
