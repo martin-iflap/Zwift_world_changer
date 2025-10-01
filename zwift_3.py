@@ -19,11 +19,9 @@ HEADER_FONT = ("Arial", 20, "bold")
 
 MEMORY = Path("memory.txt")
 # ----------------- Logging -----------------
-logging.basicConfig(
-    filename="zwift_world_selector.log",
-    level=logging.ERROR,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+logging.basicConfig(filename="zwift_world_selector.log",
+                    level=logging.ERROR,
+                    format="%(asctime)s [%(levelname)s] %(message)s")
 # ----------------- ICO Path -----------------
 # def resource_path(filename: str) -> str:
 #     """Get path to resource, works in dev and PyInstaller bundle."""
@@ -157,7 +155,7 @@ class WorldSelectorUI(ctk.CTk):
                                          font=STS_LBL_FONT,
                                          text_color=STS_LBL_TXT_CLR)
         self.status_label.pack(pady=15)
-        if prefs_manager.prefs_path is None:
+        if self.prefs_manager.prefs_path is None:
             self.status_label.configure(text="Please select prefs.xml file manually", text_color="red")
 
         # World buttons
