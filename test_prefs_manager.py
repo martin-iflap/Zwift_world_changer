@@ -43,13 +43,19 @@ def test_writes_file(fake_mem: Path, prefs_file: Path, zpm: ZwiftPrefsManager) -
     zpm.set_prefs_file(str(prefs_file))
     assert fake_mem.read_text(encoding="utf-8").strip() == str(prefs_file.resolve())
 
-def test_get_world_name(wui: WorldSelectorUI) -> None:
+def test_get_world_name(zpm: ZwiftPrefsManager) -> None:
     """Tests if the get_world_name can get world name from world id"""
-    assert wui.get_world_name(5) == "Innsbruck"
+    assert zpm.get_world_name(5) == "Innsbruck"
 
 def test_set_world(prefs_file: Path, zpm: ZwiftPrefsManager) -> None:
+    """Tests if the world is being set properly inside prefs.xml"""
     zpm.set_prefs_file(str(prefs_file))
     zpm.set_world(3)
     assert zpm.get_current_world() == 3
-    zpm.set_world(2)
-    assert zpm.get_current_world() == 2
+
+    zpm.set_world(5)
+    tree = Et.parse(prefs_file)
+    root = tree.getroot()
+    assert int(root.find("WORLD").text) == 5
+
+    assert zpm.set_world(99) is False
