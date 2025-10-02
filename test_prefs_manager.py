@@ -34,21 +34,26 @@ def wui(zpm: ZwiftPrefsManager) -> WorldSelectorUI:
     return WorldSelectorUI(pref_manager=zpm)
 
 def test_get_current_world(prefs_file: Path, zpm: ZwiftPrefsManager, fake_mem: Path) -> None:
-    """Tests if the world is being read correctly from prefs.xml"""
+    """Test if the world is being read correctly from prefs.xml"""
     zpm.set_prefs_file(str(prefs_file))
     assert zpm.get_current_world() == 2
 
-def test_writes_file(fake_mem: Path, prefs_file: Path, zpm: ZwiftPrefsManager) -> None:
-    """Tests if the prefs path is being writen correctly into memory"""
+def test_reads_from_mem(prefs_file: Path,
+                        zpm: ZwiftPrefsManager,
+                        fake_mem: Path,
+                        monkeypatch) -> None:
+    """Test if the _find_prefs can read from memory.txt"""
+    monkeypatch.setattr(zpm, "possible_paths", [])
+    fake_mem.write_text(str(prefs_file), encoding="utf-8")
+    assert zpm._find_prefs() == prefs_file
+
+def test_writes_to_mem(fake_mem: Path, prefs_file: Path, zpm: ZwiftPrefsManager) -> None:
+    """Test if the prefs path is being writen correctly into memory.txt"""
     zpm.set_prefs_file(str(prefs_file))
     assert fake_mem.read_text(encoding="utf-8").strip() == str(prefs_file.resolve())
 
-def test_get_world_name(zpm: ZwiftPrefsManager) -> None:
-    """Tests if the get_world_name can get world name from world id"""
-    assert zpm.get_world_name(5) == "Innsbruck"
-
 def test_set_world(prefs_file: Path, zpm: ZwiftPrefsManager) -> None:
-    """Tests if the world is being set properly inside prefs.xml"""
+    """Test if the world is being set properly inside prefs.xml"""
     zpm.set_prefs_file(str(prefs_file))
     zpm.set_world(3)
     assert zpm.get_current_world() == 3
@@ -59,3 +64,7 @@ def test_set_world(prefs_file: Path, zpm: ZwiftPrefsManager) -> None:
     assert int(root.find("WORLD").text) == 5
 
     assert zpm.set_world(99) is False
+
+def test_get_world_name(zpm: ZwiftPrefsManager) -> None:
+    """Test if the get_world_name can get world name from world id"""
+    assert zpm.get_world_name(5) == "Innsbruck"
