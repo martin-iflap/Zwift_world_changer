@@ -52,7 +52,7 @@ def test_writes_to_mem(fake_mem: Path, prefs_file: Path, zpm: ZwiftPrefsManager)
     zpm.set_prefs_file(str(prefs_file))
     assert fake_mem.read_text(encoding="utf-8").strip() == str(prefs_file.resolve())
 
-def test_set_world(prefs_file: Path, zpm: ZwiftPrefsManager) -> None:
+def test_set_world(prefs_file: Path, zpm: ZwiftPrefsManager, fake_mem: Path) -> None:
     """Test if the world is being set properly inside prefs.xml"""
     zpm.set_prefs_file(str(prefs_file))
     zpm.set_world(3)
@@ -68,3 +68,4 @@ def test_set_world(prefs_file: Path, zpm: ZwiftPrefsManager) -> None:
 def test_get_world_name(zpm: ZwiftPrefsManager) -> None:
     """Test if the get_world_name can get world name from world id"""
     assert zpm.get_world_name(5) == "Innsbruck"
+    assert zpm.get_world_name(99) is None
