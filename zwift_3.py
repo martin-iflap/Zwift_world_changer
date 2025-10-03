@@ -173,6 +173,8 @@ class WorldSelectorUI(ctk.CTk):
         self.status_label.pack(pady=15)
         if self.prefs_manager.prefs_path is None:
             self.status_label.configure(text="Please select prefs.xml file manually", text_color="red")
+        else:
+            self.status_label.configure(text="Prefs file found✔️", text_color="green")
 
         # World buttons
         grid_frame = ctk.CTkFrame(self)
@@ -211,7 +213,7 @@ class WorldSelectorUI(ctk.CTk):
         exit_btn.pack(pady=20)
 
         # Highlight current world (if any)
-        self.highlight_current_world()
+        self.after(2500, self.highlight_current_world)
 
     def update_status(self, message: str, color: str = "#005B96"):
         self.status_label.configure(text=message, text_color=color)
@@ -223,7 +225,7 @@ class WorldSelectorUI(ctk.CTk):
         )
         if file_path:
             self.prefs_manager.set_prefs_file(file_path)
-            self.update_status("Prefs file selected!", "green")
+            self.update_status("Prefs file selected✔️", "green")
             self.after(2500, self.highlight_current_world)
 
     def on_world_select(self, world_id: int) -> None:
