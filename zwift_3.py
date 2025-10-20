@@ -1,11 +1,15 @@
-# import sys
-import logging
 import xml.etree.ElementTree as Et
-from pathlib import Path
-# from PIL import Image
-import customtkinter as ctk
 from tkinter import filedialog
+from bs4 import BeautifulSoup
+import customtkinter as ctk
+from pathlib import Path
 from lxml import etree
+import requests
+import datetime
+import logging
+import re
+# from PIL import Image
+# import sys
 
 
 #--------------   Settings   ------------------
@@ -18,15 +22,19 @@ HEADER_CLR = "white"
 HEADER_FONT = ("Arial", 20, "bold")
 
 MEMORY = Path("memory.txt")
+BASE_URL = "https://zwiftinsider.com/schedule/"
 # ----------------- Logging -----------------
 logging.basicConfig(filename="zwift_world_selector.log",
                     level=logging.ERROR,
                     format="%(asctime)s [%(levelname)s] %(message)s")
 # ----------------- ICO Path -----------------
-# def resource_path(filename: str) -> str:
-#     """Get path to resource, works in dev and PyInstaller bundle."""
-#     base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
-#     return str(Path(base_path) / filename)
+# def resource_path(file_name: str) -> Path:
+#     """Get path to resource, works in dev and PyInstaller bundle"""
+#     try:
+#         base_path = getattr(sys, "_MEIPASS", Path(".").resolve())
+#         return Path(base_path) / file_name
+#     except Exception as e:
+#         logging.error(f"Getting icon path failed: {e}")
 ico_path = Path("zwift_logo.ico")
 # ----------------- Prefs Manager -----------------
 class ZwiftPrefsManager:
@@ -173,6 +181,8 @@ class WorldSelectorUI(ctk.CTk):
         self.status_label.pack(pady=15)
         if self.prefs_manager.prefs_path is None:
             self.status_label.configure(text="Please select prefs.xml file manually", text_color="red")
+        else:
+            self.status_label.configure(text="Prefs file found✔️", text_color="green")
 
         # World buttons
         grid_frame = ctk.CTkFrame(self)
@@ -211,7 +221,7 @@ class WorldSelectorUI(ctk.CTk):
         exit_btn.pack(pady=20)
 
         # Highlight current world (if any)
-        self.highlight_current_world()
+        self.after(2500, self.highlight_current_world)
 
     def update_status(self, message: str, color: str = "#005B96"):
         self.status_label.configure(text=message, text_color=color)
@@ -223,7 +233,7 @@ class WorldSelectorUI(ctk.CTk):
         )
         if file_path:
             self.prefs_manager.set_prefs_file(file_path)
-            self.update_status("Prefs file selected!", "green")
+            self.update_status("Prefs file selected✔️", "green")
             self.after(2500, self.highlight_current_world)
 
     def on_world_select(self, world_id: int) -> None:
@@ -265,8 +275,80 @@ class WorldSelectorUI(ctk.CTk):
     #
     #     close_btn = ctk.CTkButton(win, text="Close", command=win.destroy)
     #     close_btn.pack(pady=10)
+# --------------------   Scrape Zwift insider   --------------------
+class ZwiftInsiderScraper:
+    def __init__(self, manager: ZwiftPrefsManager):
+        self.manager = manager
+
+    def get_current_day(self) -> str:
+        """Get the current day of the month as str"""
+        return str(datetime.date.today().day)
+
+    def fetch_html(self, url: str=BASE_URL) -> str | None:
+        """Fetch HTML content from a URL"""
+        try:
+            headers  = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://zwiftinsider.com/",
+        "Connection": "close"}
+            response = requests.get(url, headers=headers, timeout=20)
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            logging.error(f"Error fetching URL {url}: {e}")
+            return None
+
+    def pull_from_html(self) -> list[str] | None:
+        """Scrape data form Zwift Insider schedule page"""
+        html_content = self.fetch_html()
+        if not html_content:
+            return None
+
+        try:
+            soup = BeautifulSoup(html_content, "html.parser")
+            content = soup.select_one("article .entry-content") or soup
+            text = "\n".join(content.stripped_strings)
+            lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.splitlines() if ln.strip()] # take a look at this later
+            return lines
+        except Exception as e:
+            logging.error(f"Error parsing HTML content: {e}")
+            return None
+
+    def get_world_rotation(self, lines: list[str]):
+        """Get the current worlds from the scraped data = world rotation"""
+        today = self.get_current_day()
+        day_rx = re.compile(rf"^\s*0*{today}\s*$")
+        idx = None
+        for i, line in enumerate(lines):
+            if day_rx.match(line):
+                idx = i
+                break
+
+        if idx is None:
+            logging.error("Could not find current day in the schedule")
+            return []
+
+        window = lines[idx: idx + 4]
+        found = []
+        for ln in window:
+            for w in self.manager.WORLDS.keys():
+                if re.search(rf"\b{re.escape(w)}\b", ln, re.IGNORECASE):
+                    if w not in found:
+                        found.append(w)
+        logging.info(f"World rotation found for today: {found}")
+        return found
+
+
+
+
 # ----------------- Run -----------------
 if __name__ == "__main__":
     prefs_manager = ZwiftPrefsManager()
     app = WorldSelectorUI(prefs_manager)
+    scraper = ZwiftInsiderScraper(prefs_manager)
+    html_lines = scraper.pull_from_html()
+    if html_lines:
+        today_rotation = scraper.get_world_rotation(html_lines)
+        print(f"Today's Zwift world rotation: {today_rotation}")
     app.mainloop()
