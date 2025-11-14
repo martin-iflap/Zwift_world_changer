@@ -80,7 +80,7 @@ def test_get_world_rotation(zi_scraper: ZwiftInsiderScraper, monkeypatch: pytest
     """Test if the get_world_rotation can get the world that's on rotation from the scraped data"""
     monkeypatch.setattr(zi_scraper, "get_current_day", lambda: "8")
     fetched_data = [
-     'October 27, 2025', 'LAST UPDATED', 'October 27, 2025', '6',
+     'October 27, 2025', 'LAST UPDATED', 'October 27, 2025', '8',
      'Watopia is available every day while the other maps rotate as “Guest Worlds” according to the calendar below. This gives Zwifters access to three worlds (',
      'Watopia', '+ two guest worlds) at any given time.', '<', 'November 2025', '>', 'Monday', 'Tuesday', 'Wednesday',
      'Thursday', 'Friday', 'Saturday', 'Sunday', '1', 'Makuri Islands', 'Makuri Islands', 'New York', 'New York', '2',
