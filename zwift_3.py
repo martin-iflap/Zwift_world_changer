@@ -264,7 +264,6 @@ class WorldSelectorUI(ctk.CTk):
 
     def get_rotation_txt(self):
         today_worlds = self.scraper.run_main_scraper()
-        print(today_worlds)
         if today_worlds:
             return f"Rotation worlds: \n {today_worlds[0]} {today_worlds[1]}"
         else:
@@ -336,36 +335,56 @@ class ZwiftInsiderScraper:
             logging.error(f"Error parsing HTML content: {e}")
             return None
 
-    def get_world_rotation(self, lines: list[str]) -> list | list[str]:
-        """Get the current worlds from the scraped data = world rotation"""
+    def get_world_rotation(self, lines: list[str]) -> list[str] | None:
+        """Get the current worlds from the scraped data = world rotation
+         - Looks for the current day in the lines, stores the index of the day line
+         - Takes the next 3 lines as a window to search for worlds but skips Watopia
+         - If no worlds are found, continues searching for the next current day occurrence
+        """
         today = self.get_current_day()
         day_rx = re.compile(rf"^\s*0*{today}\s*$")
-        idx = None
-        for i, line in enumerate(lines):
-            if day_rx.match(line):
-                idx = i
-                logging.info(f"Found current day in the schedule on index {i}")
-                break
+        search_from = 0
+        filtered_worlds = [w for w in self.manager.WORLDS.keys() if w != "Watopia"]
 
-        if idx is None:
-            logging.error("Could not find current day in the schedule")
-            return []
+        while search_from < len(lines):
+            idx = None
+            for i in range(search_from, len(lines)):
+                if day_rx.match(lines[i]):
+                    idx = i
+                    logging.info(f"Found current day in the schedule on index {i}")
+                    break
 
-        window = lines[idx: idx + 4]
-        found = []
-        for ln in window:
-            for w in self.manager.WORLDS.keys():
-                if re.search(rf"\b{re.escape(w)}\b", ln, re.IGNORECASE):
-                    if w not in found:
-                        found.append(w)
-        logging.info(f"World rotation found for today: {found}")
-        return found
+            if idx is None:
+                logging.error("Could not find current day in the schedule")
+                return None
+
+            window = lines[idx + 1: idx + 4]
+            found: list[str] = []
+
+            for ln in window:
+                for w in filtered_worlds:
+                    if re.search(rf"\b{re.escape(w)}\b", ln, re.IGNORECASE):
+                        if w not in found:
+                            found.append(w)
+            if found:
+                logging.info(f"World rotation found for today: {found}")
+                return found
+            else:
+                logging.info(f"Skipping day at index {idx} (no valid worlds), retrying...")
+                search_from = idx + 1
+
+        logging.error("Exhausted lines without finding any valid worlds")
+        return None
 
     def run_main_scraper(self):
-        html_lines = scraper.pull_from_html()
+        """Main function to run the scraper and get today's world rotation"""
+        html_lines = self.pull_from_html()
         if html_lines:
-            today_rotation = scraper.get_world_rotation(html_lines)
+            today_rotation = self.get_world_rotation(html_lines)
             return today_rotation
+        else:
+            logging.error("Failed to retrieve today's world rotation")
+            return []
 
 
 
