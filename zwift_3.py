@@ -264,7 +264,6 @@ class WorldSelectorUI(ctk.CTk):
 
     def get_rotation_txt(self):
         today_worlds = self.scraper.run_main_scraper()
-        print(today_worlds)
         if today_worlds:
             return f"Rotation worlds: \n {today_worlds[0]} {today_worlds[1]}"
         else:
@@ -362,10 +361,14 @@ class ZwiftInsiderScraper:
         return found
 
     def run_main_scraper(self):
+        """Main function to run the scraper and get today's world rotation"""
         html_lines = scraper.pull_from_html()
         if html_lines:
             today_rotation = scraper.get_world_rotation(html_lines)
             return today_rotation
+        else:
+            logging.error("Failed to retrieve today's world rotation")
+            return []
 
 
 
