@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 import xml.etree.ElementTree as Et
-from zwift_3 import ZwiftPrefsManager, WorldSelectorUI
+from zwift_3 import ZwiftPrefsManager, WorldSelectorUI,  ZwiftInsiderScraper
 import zwift_3
 
 
@@ -29,9 +29,14 @@ def zpm() -> ZwiftPrefsManager:
     return ZwiftPrefsManager()
 
 @pytest.fixture
-def wui(zpm: ZwiftPrefsManager) -> WorldSelectorUI:
+def zi_scraper(zpm: ZwiftPrefsManager) -> ZwiftInsiderScraper:
+    """Returns a ZwiftInsiderScraper object"""
+    return ZwiftInsiderScraper(zpm)
+
+@pytest.fixture
+def wui(zpm: ZwiftPrefsManager, scraper: ZwiftInsiderScraper) -> WorldSelectorUI:
     """Returns a WorldSelectorUI object"""
-    return WorldSelectorUI(pref_manager=zpm)
+    return WorldSelectorUI(pref_manager=zpm, scrape_manager=scraper)
 
 def test_get_current_world(prefs_file: Path, zpm: ZwiftPrefsManager, fake_mem: Path) -> None:
     """Test if the world is being read correctly from prefs.xml"""
@@ -69,3 +74,23 @@ def test_get_world_name(zpm: ZwiftPrefsManager) -> None:
     """Test if the get_world_name can get world name from world id"""
     assert zpm.get_world_name(5) == "Innsbruck"
     assert zpm.get_world_name(99) is None
+
+
+def test_get_world_rotation(zi_scraper: ZwiftInsiderScraper, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test if the get_world_rotation can get the world that's on rotation from the scraped data"""
+    monkeypatch.setattr(zi_scraper, "get_current_day", lambda: "8")
+    fetched_data = [
+     'October 27, 2025', 'LAST UPDATED', 'October 27, 2025', '6',
+     'Watopia is available every day while the other maps rotate as “Guest Worlds” according to the calendar below. This gives Zwifters access to three worlds (',
+     'Watopia', '+ two guest worlds) at any given time.', '<', 'November 2025', '>', 'Monday', 'Tuesday', 'Wednesday',
+     'Thursday', 'Friday', 'Saturday', 'Sunday', '1', 'Makuri Islands', 'Makuri Islands', 'New York', 'New York', '2',
+     'Makuri Islands', 'Makuri Islands', 'New York', 'New York', '3', 'Makuri Islands', 'Makuri Islands', 'New York',
+     'New York', '4', 'Makuri Islands', 'Makuri Islands', 'New York', 'New York', '5', 'Makuri Islands',
+     'Makuri Islands', 'New York', 'New York', '6', 'Makuri Islands', 'Makuri Islands', 'New York', 'New York', '7',
+     'Makuri Islands', 'Makuri Islands', 'New York', 'New York', '8', 'Innsbruck', 'Innsbruck', 'New York',
+     'New York', '9', 'Makuri Islands', 'Makuri Islands', 'New York', 'New York'
+    ]
+
+    rotation = zi_scraper.get_world_rotation(lines=fetched_data)
+    assert len(rotation) == 2
+    assert rotation == ["Innsbruck", "New York"]
